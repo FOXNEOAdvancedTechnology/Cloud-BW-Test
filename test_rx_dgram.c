@@ -46,9 +46,9 @@ void print_time()
 
 	/* Format and print the time, "ddd yyyy-mm-dd hh:mm:ss zzz" */
 	ts = localtime(&now);
-	strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", ts);
+	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", ts);
 
-	printf("%s:",buf);
+	printf("%s,",buf);
 }
 
 
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
 	if((this_sn-last_sn != 1) && (this_sn-last_sn != -32767) &&(last_sn != -1))
 	{
 		print_time();
-		printf("DROP before: %d\n",this_sn);
+		printf("DROP,%d,%d\n",last_sn,this_sn);
 		fflush(stdout);	
 	}	
 	if((buf[1] & 0xff) == 0xe0){

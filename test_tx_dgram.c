@@ -13,8 +13,7 @@
 #include <time.h>
 
 #define BUFSIZE 820 
-#define IPG 57600 
-
+#define IPG 4325 
 /* 
  *  * error - wrapper for perror
  *   */
@@ -89,7 +88,7 @@ int main(int argc, char **argv) {
     {
         buf[2]=(sn/256);
 	buf[3]=(sn%256);
-	if(((time2.tv_sec % 6)==0) && (time2.tv_sec != dontmark))
+	if(((time2.tv_sec % 60)==0) && (time2.tv_sec != dontmark))
         {
 		// mark 
 		buf[1]=0xE0;

@@ -11,8 +11,9 @@
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
+#include <errno.h>
 
-#define BUFSIZE 828 
+#define BUFSIZE 8900
 
 /* 
  *  * error - wrapper for perror
@@ -79,6 +80,11 @@ int main(int argc, char **argv) {
     serveraddr.sin_family    = AF_INET; // IPv4 
     serveraddr.sin_addr.s_addr = INADDR_ANY; 
     serveraddr.sin_port = htons(portno); 
+
+    /* set large buffer */
+    long buf_size = 4294967295; // 2^32-1
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &n, buf_size) == -1)
+                printf("ERROR set receive buffer size %s", strerror(errno));
 
     /* bind the socket */
     if (bind(sockfd, (const struct sockaddr *)&serveraddr,sizeof(serveraddr)) <0)

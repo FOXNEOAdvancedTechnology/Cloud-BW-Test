@@ -23,19 +23,6 @@ void error(char *msg) {
     exit(0);
 }
 
-struct timespec diff(struct timespec start, struct timespec end)
-{
-	struct timespec temp;
-	if ((end.tv_nsec-start.tv_nsec)<0) {
-		temp.tv_sec = end.tv_sec-start.tv_sec-1;
-		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
-	} else {
-		temp.tv_sec = end.tv_sec-start.tv_sec;
-		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
-	}
-	return temp;
-}
-
 void print_time()
 {
 	time_t     now;
@@ -58,7 +45,6 @@ int main(int argc, char **argv) {
     struct sockaddr_in serveraddr,cliaddr;
     char buf[BUFSIZE];
     struct timespec the_time;
-    long last_time=0;
     uint this_sn,last_sn=-1;
 
     /* check command line arguments */
@@ -115,7 +101,6 @@ int main(int argc, char **argv) {
                 fflush(stdout);
         }
 	last_sn=this_sn;
-	last_time=the_time.tv_nsec;
     }
 }
  

@@ -13,14 +13,7 @@
 #include <sys/types.h>
 #include <net/if.h>
 #include <netinet/ether.h>
-
-// 0a:e2:0e:2d:89:5a
-#define DEST_MAC0	0x0a
-#define DEST_MAC1	0xe2
-#define DEST_MAC2	0x0e
-#define DEST_MAC3	0x2d
-#define DEST_MAC4	0x89
-#define DEST_MAC5	0x5a
+#include <time.h>
 
 #define ETHER_TYPE	0x0800
 
@@ -52,6 +45,22 @@ struct sock_filter code[] = {
 { 0x6, 0, 0, 0x00000000 }
 };
 
+void print_time()
+{
+        time_t     now;
+        struct tm *ts;
+        char       buf[80];
+
+        /* Get the current time */
+        now = time(NULL);
+
+        /* Format and print the time, "ddd yyyy-mm-dd hh:mm:ss zzz" */
+        ts = localtime(&now);
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", ts);
+
+        printf("%s,",buf);
+}
+
 int main(int argc, char *argv[])
 {
 	char sender[INET6_ADDRSTRLEN];
@@ -63,6 +72,8 @@ int main(int argc, char *argv[])
 	struct sockaddr_storage their_addr;
 	uint8_t buf[BUF_SIZ];
 	char ifName[IFNAMSIZ];
+	uint this_sn,last_sn=-1;
+	struct timespec the_time;
 
 	struct sock_fprog bpf = {
        	  .len = ARRAY_SIZE(code),
@@ -114,6 +125,8 @@ int main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
 	}
 
+	print_time();
+	printf("START\n");
 repeat:	//printf("listener: Waiting to recvfrom...\n");
 	numbytes = recvfrom(sockfd, buf, BUF_SIZ, 0, NULL, NULL);
 	//printf("listener: got packet %lu bytes\n", numbytes);
@@ -149,26 +162,42 @@ repeat:	//printf("listener: Waiting to recvfrom...\n");
 	*/
 
 	/* Get source IP */
-	((struct sockaddr_in *)&their_addr)->sin_addr.s_addr = iph->saddr;
-	inet_ntop(AF_INET, &((struct sockaddr_in*)&their_addr)->sin_addr, sender, sizeof sender);
+	//((struct sockaddr_in *)&their_addr)->sin_addr.s_addr = iph->saddr;
+	//inet_ntop(AF_INET, &((struct sockaddr_in*)&their_addr)->sin_addr, sender, sizeof sender);
 
 	/* Look up my device IP addr if possible */
-	strncpy(if_ip.ifr_name, ifName, IFNAMSIZ-1);
-	if (ioctl(sockfd, SIOCGIFADDR, &if_ip) >= 0) { /* if we can't check then don't */
-		printf("Source IP: %s\n My IP: %s\n", sender, 
-				inet_ntoa(((struct sockaddr_in *)&if_ip.ifr_addr)->sin_addr));
-		/* ignore if I sent it */
-		if (strcmp(sender, inet_ntoa(((struct sockaddr_in *)&if_ip.ifr_addr)->sin_addr)) == 0)	{
-			printf("but I sent it :(\n");
-			ret = -1;
-			goto done;
-		}
-	}
+	// strncpy(if_ip.ifr_name, ifName, IFNAMSIZ-1);
+	//if (ioctl(sockfd, SIOCGIFADDR, &if_ip) >= 0) { /* if we can't check then don't */
+	//	printf("Source IP: %s\n My IP: %s\n", sender, 
+	//			inet_ntoa(((struct sockaddr_in *)&if_ip.ifr_addr)->sin_addr));
+	//	/* ignore if I sent it */
+	//	if (strcmp(sender, inet_ntoa(((struct sockaddr_in *)&if_ip.ifr_addr)->sin_addr)) == 0)	{
+	//		printf("but I sent it :(\n");
+	//		ret = -1;
+	//		goto done;
+	//	}
+	//}
 
 	/* UDP payload length */
-	ret = ntohs(udph->len) - sizeof(struct udphdr);
+	// ret = ntohs(udph->len) - sizeof(struct udphdr);
 
-	/* Print packet */
+        clock_gettime(CLOCK_REALTIME, &the_time);
+        this_sn=((buf[44] &0xff) << 8 ) | (buf[45] & 0xff);
+        if((this_sn-last_sn != 1) && (this_sn-last_sn != -32767) &&(last_sn != -1))
+        {
+                print_time();
+                printf("DROP,%d,%d\n",last_sn,this_sn);
+                fflush(stdout);
+        }
+        if((buf[43] & 0xff) == 0xe0){
+                print_time();
+                printf("MARK\n");
+                fflush(stdout);
+        }
+        last_sn=this_sn;
+
+	// Print packet 
+	/*
 	printf("\tData:");
 	for (i=0; i<numbytes; i++) printf("%02x:", buf[i]);
 	printf("\n");
@@ -176,7 +205,7 @@ repeat:	//printf("listener: Waiting to recvfrom...\n");
 		printf("**********************************************************************\n");
 	}
 	printf("UDP DST %ld\n",ntohs(udph->dest));
-
+	*/
 
 done:	goto repeat;
 

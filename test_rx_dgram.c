@@ -44,7 +44,6 @@ int main(int argc, char **argv) {
     int sockfd, portno, n, cliaddrlen;
     struct sockaddr_in serveraddr,cliaddr;
     char buf[BUFSIZE];
-    struct timespec the_time;
     uint this_sn,last_sn=-1;
 
     /* check command line arguments */
@@ -87,7 +86,6 @@ int main(int argc, char **argv) {
 	n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr*) &cliaddr, &cliaddrlen);
 	if (n < 0)
 		error("ERROR in sendto"); 
-	clock_gettime(CLOCK_REALTIME, &the_time);	
 	this_sn=((buf[2] &0xff) << 8 ) | (buf[3] & 0xff);
 	if((this_sn-last_sn != 1) && (this_sn-last_sn != -32767) &&(last_sn != -1))
 	{

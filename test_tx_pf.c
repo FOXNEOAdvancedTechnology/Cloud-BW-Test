@@ -1,4 +1,7 @@
-/*  Copyright (C) 2011-2015  P.D. Buchan (pdbuchan@yahoo.com)
+/*  
+ *
+ *
+ *  Based on program Copyright (C) 2011-2015  P.D. Buchan (pdbuchan@yahoo.com)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -36,7 +39,7 @@
 #include <linux/if_ether.h>   // ETH_P_IP = 0x0800, ETH_P_IPV6 = 0x86DD
 #include <linux/if_packet.h>  // struct sockaddr_ll (see man 7 packet)
 #include <net/ethernet.h>
-
+#include <time.h>
 #include <errno.h>            // errno, perror()
 
 // Define some constants.
@@ -44,12 +47,29 @@
 #define IP4_HDRLEN 20  // IPv4 header length
 #define UDP_HDRLEN  8  // UDP header length, excludes data
 
+#define BUFSIZE 820 
+#define IPG 4325 
+
 // Function prototypes
 uint16_t checksum (uint16_t *, int);
 uint16_t udp4_checksum (struct ip, struct udphdr, uint8_t *, int);
 char *allocate_strmem (int);
 uint8_t *allocate_ustrmem (int);
 int *allocate_intmem (int);
+
+
+struct timespec diff(struct timespec start, struct timespec end)
+{
+        struct timespec temp;
+        if ((end.tv_nsec-start.tv_nsec)<0) {
+                temp.tv_sec = end.tv_sec-start.tv_sec-1;
+                temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+        } else {
+                temp.tv_sec = end.tv_sec-start.tv_sec;
+                temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+        }
+        return temp;
+}
 
 int
 main (int argc, char **argv)
@@ -64,6 +84,9 @@ main (int argc, char **argv)
   struct sockaddr_ll device;
   struct ifreq ifr;
   void *tmp;
+
+  struct timespec time1, time2, delta;
+  int sn=0; // RTP sequence number
 
   // Allocate memory for various arrays.
   src_mac = allocate_ustrmem (6);
@@ -114,20 +137,20 @@ main (int argc, char **argv)
   printf ("Index for interface %s is %i\n", interface, device.sll_ifindex);
 
   // Set destination MAC address: you need to fill these out
-  // 0a:e2:0e:2d:89:5a
+  // 0a:b3:cb:29:36:ca 
   //
   dst_mac[0] = 0x0a;
-  dst_mac[1] = 0xe2;
-  dst_mac[2] = 0x0e;
-  dst_mac[3] = 0x2d;
-  dst_mac[4] = 0x89;
-  dst_mac[5] = 0x5a;  
+  dst_mac[1] = 0xb3;
+  dst_mac[2] = 0xcb;
+  dst_mac[3] = 0x29;
+  dst_mac[4] = 0x36;
+  dst_mac[5] = 0xca;  
 
   // Source IPv4 address: you need to fill this out
-  strcpy (src_ip, "172.30.0.225");
+  strcpy (src_ip, "172.30.0.131");
 
   // Destination URL or IPv4 address: you need to fill this out
-  strcpy (target, "172.30.0.159");
+  strcpy (target, "172.30.0.248");
 
   // Fill out hints for getaddrinfo().
   memset (&hints, 0, sizeof (struct addrinfo));
@@ -155,11 +178,11 @@ main (int argc, char **argv)
   device.sll_halen = 6;
 
   // UDP data
-  datalen = 4;
-  data[0] = 'T';
-  data[1] = 'e';
-  data[2] = 's';
-  data[3] = 't';
+  datalen = BUFSIZE;
+  memset(data,0,BUFSIZE);
+
+  data[0]=0x80;
+  data[1]=0x60;
 
   // IPv4 header
 
@@ -264,12 +287,47 @@ main (int argc, char **argv)
     exit (EXIT_FAILURE);
   }
 
-  // Send ethernet frame to socket.
-  if ((bytes = sendto (sd, ether_frame, frame_length, 0, (struct sockaddr *) &device, sizeof (device))) <= 0) {
-    perror ("sendto() failed");
-    exit (EXIT_FAILURE);
-  }
+long dontmark=0;
 
+while(1)
+  {
+	data[2]=(sn/256);
+	data[3]=(sn%256);
+
+        if(((time2.tv_sec % 60)==0) && (time2.tv_sec != dontmark))
+        {
+		// mark 
+                data[1]=0xE0;
+                dontmark=time2.tv_sec; // just do it once
+        }
+        else
+        {
+                // don't mark
+                data[1]=0x60;
+        }
+
+	// UDP checksum (16 bits)
+	udphdr.check = udp4_checksum (iphdr, udphdr, data, datalen);
+
+	// UDP header	
+	memcpy (ether_frame + ETH_HDRLEN + IP4_HDRLEN, &udphdr, UDP_HDRLEN * sizeof (uint8_t));	
+
+	// UDP data
+	memcpy (ether_frame + ETH_HDRLEN + IP4_HDRLEN + UDP_HDRLEN, data, datalen * sizeof (uint8_t));	
+
+	// Send ethernet frame to socket.
+	if ((bytes = sendto (sd, ether_frame, frame_length, 0, (struct sockaddr *) &device, sizeof (device))) <= 0) {
+	perror ("sendto() failed");
+	exit (EXIT_FAILURE);
+	}
+	sn=(sn+1)%32768;
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time1);
+	do {
+		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
+                delta=diff(time1,time2);
+        }
+        while (delta.tv_nsec<IPG);	
+  }
   // Close socket descriptor.
   close (sd);
 

@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
     serveraddr.sin_port = htons(portno); 
 
     /* set large buffer */
-    long buf_size = 4294967295; // 2^32-1
+    long buf_size = 2147483647; // 2^31-1
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &n, buf_size) == -1)
                 printf("ERROR set receive buffer size %s", strerror(errno));
 

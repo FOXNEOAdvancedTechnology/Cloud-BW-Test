@@ -27,7 +27,21 @@ static const struct rte_eth_conf port_conf_default = {
 	},
 };
 
-/* basicfwd.c: Basic DPDK skeleton forwarding example. */
+void print_time()
+{
+	time_t     now;
+	struct tm *ts;
+	char       buf[80];
+
+	/* Get the current time */
+	now = time(NULL);
+
+	/* Format and print the time, "ddd yyyy-mm-dd hh:mm:ss zzz" */
+	ts = localtime(&now);
+	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", ts);
+
+	printf("%s,",buf);
+}
 
 void DumpHex(const void* data, size_t size) {
 	char ascii[17];
@@ -139,7 +153,7 @@ lcore_main(void)
 {
 	uint16_t port;
 	int i;
-	uint this_sn=-1; 
+	uint this_sn,last_sn=-1; 
 	char *this_packet;
 
 	printf("in lcore_main\n");
@@ -174,22 +188,39 @@ lcore_main(void)
 			if (unlikely(nb_rx == 0))
 				continue;
 
-			printf("received %d packets!\n",nb_rx);
+//			printf("received %d packets!\n",nb_rx);
 
 			for(i=0;i<nb_rx;++i){
-				printf("----->processing packet %d\n",i);
-				printf("----->pkt_len=%d\n",bufs[i]->pkt_len);
 
+//				printf("----->processing packet %d\n",i);
+//				printf("----->pkt_len=%d\n",bufs[i]->pkt_len);
 //				show Ethernet header
 //				DumpHex(rte_pktmbuf_mtod(bufs[i],struct ether_hdr *),14);
-
 //				dump whole packet
 //				DumpHex(rte_pktmbuf_mtod(bufs[i],char *),bufs[i]->pkt_len);
 
-				this_packet=rte_pktmbuf_mtod(bufs[i],char *);
+				if(bufs[i]->pkt_len == 862){
 
-				this_sn=((this_packet[44] &0xff) << 8 ) | (this_packet[45] & 0xff);
-				printf("------------->rtp SN=%d\n",this_sn);
+					this_packet=rte_pktmbuf_mtod(bufs[i],char *);
+
+					this_sn=((this_packet[44] &0xff) << 8 ) | (this_packet[45] & 0xff);
+//					printf("------------->rtp SN=%d\n",this_sn);
+			
+					if((this_sn-last_sn != 1) && (this_sn-last_sn != -32767) &&(last_sn != -1))
+					{
+						print_time();
+						printf("DROP,%d,%d\n",last_sn,this_sn);
+						fflush(stdout);	
+					}	
+					if((this_packet[43] & 0xff) == 0xe0){
+						print_time();
+						printf("MARK\n");
+						fflush(stdout);
+					}
+					last_sn=this_sn;	
+
+				}
+// else {printf("non-862 len packet dropped\n");}
 
 				rte_pktmbuf_free(bufs[i]);
 			}

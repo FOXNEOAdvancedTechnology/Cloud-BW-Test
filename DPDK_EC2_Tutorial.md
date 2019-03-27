@@ -23,75 +23,74 @@ tar xf dpdk*.tar.xz
 cd dpdk*
 ```		
 9. Assuming you are on x86_64 linux with gcc (otherwise see DPDK documentation):
-
-		sudo su
-		export RTE_SDK=`pwd`
-		make config install T=x86_64-native-linuxapp-gcc DESTDIR=$RTE_SDK
-		
+```
+sudo su
+export RTE_SDK=`pwd`
+make config install T=x86_64-native-linuxapp-gcc DESTDIR=$RTE_SDK
+```		
 10. Reserve hugepages:
-
-		echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
-		
+```
+echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+```		
 11. In the RHEL AMI, it is likely a file system of
 type `hugetlbfs` has already been mounted.  You can check this:
-
-		# cat /proc/mounts | grep hugetlbfs
-		hugetlbfs /dev/hugepages hugetlbfs rw,seclabel,relatime 0 0
-
+```
+# cat /proc/mounts | grep hugetlbfs
+hugetlbfs /dev/hugepages hugetlbfs rw,seclabel,relatime 0 0
+```
 	If it is not there for some reason, you should mount one:
-	
-		mkdir /mnt/huge
-    	mount -t hugetlbfs nodev /mnt/huge
-  
+```
+mkdir /mnt/huge
+mount -t hugetlbfs nodev /mnt/huge
+```  
 12. You can check on the huge pages:
-
-		# cat /proc/meminfo | grep HugePages_
-		HugePages_Total:    1024
-		HugePages_Free:     1024
-		HugePages_Rsvd:        0
-		HugePages_Surp:        0
-  	
+```
+# cat /proc/meminfo | grep HugePages_
+HugePages_Total:    1024
+HugePages_Free:     1024
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+```	
 13. Disable Address-Space Layout Randomization (ASLR)
-
-		echo 0 > /proc/sys/kernel/randomize_va_space
-		
+```
+echo 0 > /proc/sys/kernel/randomize_va_space
+```		
 14.  Install kernel modules:
-
-	modprobe uio
-    	modprobe hwmon
-    	insmod x86_64-native-linuxapp-gcc/kmod/igb_uio.ko
-    	insmod x86_64-native-linuxapp-gcc/kmod/rte_kni.ko  	
-
+```
+modprobe uio
+modprobe hwmon
+insmod x86_64-native-linuxapp-gcc/kmod/igb_uio.ko
+insmod x86_64-native-linuxapp-gcc/kmod/rte_kni.ko  	
+```
 15. Take down interface(s) you will use with DPDK:
-
-		# ifconfig eth1 down
-		
+```
+ifconfig eth1 down
+```		
 16. Now look at the NIC drivers which are bound:
+```
+# ./usertools/dpdk-devbind.py --status
 
-		# ./usertools/dpdk-devbind.py --status
-
-		Network devices using kernel driver
-		===================================
-		0000:00:05.0 'Elastic Network Adapter (ENA) ec20' if=eth0 drv=ena unused=igb_uio *Active*
-		0000:00:06.0 'Elastic Network Adapter (ENA) ec20' if=eth1 drv=ena unused=igb_uio 
-		...
-		
+Network devices using kernel driver
+===================================
+0000:00:05.0 'Elastic Network Adapter (ENA) ec20' if=eth0 drv=ena unused=igb_uio *Active*
+0000:00:06.0 'Elastic Network Adapter (ENA) ec20' if=eth1 drv=ena unused=igb_uio 
+...
+```		
 17. Bind the DPDK NIC(s) to the `igb_uio`driver using the last part of the PCI "bus:slot.func" address you saw from `dpdk-devbind.py --status`.  Then confirm
+```
+# ./usertools/dpdk-devbind.py --bind=igb_uio 00:06.0
+# ./usertools/dpdk-devbind.py --status
 
-		# ./usertools/dpdk-devbind.py --bind=igb_uio 00:06.0
-		# ./usertools/dpdk-devbind.py --status
+Network devices using DPDK-compatible driver
+============================================
+0000:00:06.0 'Elastic Network Adapter (ENA) ec20' drv=igb_uio unused=ena
 
-		Network devices using DPDK-compatible driver
-		============================================
-		0000:00:06.0 'Elastic Network Adapter (ENA) ec20' drv=igb_uio unused=ena
-
-		Network devices using kernel driver
-		===================================
-		0000:00:05.0 'Elastic Network Adapter (ENA) ec20' if=eth0 drv=ena unused=igb_uio *Active* 
-		...
-
+Network devices using kernel driver
+===================================
+0000:00:05.0 'Elastic Network Adapter (ENA) ec20' if=eth0 drv=ena unused=igb_uio *Active* 
+...
+```
 18. Make and run an example:
-
 ```shell
 cd examples/helloworld
 make

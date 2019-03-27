@@ -3,7 +3,7 @@
 *DPDK is a very large and complex toolkit.  Here is a step-by-step mechanism to get it running on AWS EC2.*
 
 1. For this tutorial, launch an EC2 instance with RHEL AMI, such as Red Hat Enterprise Linux 7.6.  (Other AMIs can work with DPDK, we'll use RHEL for this tutorial).
-2. Choose and instance type that supports the Elastic Network Adapter (ENA).  A list is here: <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html>.  For example, c5.9xlarge. If you launch with the right instance type and AMI you don't have to do anything special to enable the ENA.
+2. Choose an instance type that supports the Elastic Network Adapter (ENA).  A list is here: <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html>.  For example, c5.9xlarge. If you launch with the right instance type and AMI you don't have to do anything special to enable the ENA.
 3. We will use eth0 for ssh control of the EC2 instance.  Add at least one additional Network Interface for DPDK.
 4. Configure an appropriate Security Group to let in the traffic you are interested in.
 5. Because your EC2 instance has more than one Network Interface, you'll have to set up an Elastic IP to access the EC2 instance from outside AWS:  
@@ -33,12 +33,12 @@
 		echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
 		
 11. In the RHEL AMI, it is likely a file system of
-type hugetlbfs has already been mounted.  You can check this:
+type `hugetlbfs` has already been mounted.  You can check this:
 
 		# cat /proc/mounts | grep hugetlbfs
 		hugetlbfs /dev/hugepages hugetlbfs rw,seclabel,relatime 0 0
 
-	If not for some reason, you should mount one:
+	If it is not there for some reason, you should mount one:
 	
 		mkdir /mnt/huge
     	mount -t hugetlbfs nodev /mnt/huge
@@ -57,10 +57,11 @@ type hugetlbfs has already been mounted.  You can check this:
 		
 14.  Install kernel modules:
 
-		modprobe uio
+	modprobe uio
     	modprobe hwmon
     	insmod x86_64-native-linuxapp-gcc/kmod/igb_uio.ko
     	insmod x86_64-native-linuxapp-gcc/kmod/rte_kni.ko  	
+
 15. Take down interface(s) you will use with DPDK:
 
 		# ifconfig eth1 down
@@ -89,7 +90,7 @@ type hugetlbfs has already been mounted.  You can check this:
 		0000:00:05.0 'Elastic Network Adapter (ENA) ec20' if=eth0 drv=ena unused=igb_uio *Active* 
 		...
 
-18. Make an example:
+18. Make and run an example:
 
 ```shell
 cd examples/helloworld
@@ -118,7 +119,7 @@ hello from core 35
 hello from core 0
 ```
 
-###Notes:
+### Notes:
 EC2 networking will still route IP packets to the private IP addresses of the DPDK-enabled Network Interface as identified in the AWS Console.
 
-You can add additional Network Interfaces onto your EC2 instance by going to the "Network Interfaces" tab on the AWS Console and clicking on "Create Network Interface", then "attaching" it to your instance.
+You can add additional Network Interfaces onto your EC2 instance by going to the "Network Interfaces" tab on the AWS Console and clicking on "Create Network Interface", then "attaching" them to your instance.

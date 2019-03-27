@@ -13,17 +13,15 @@
 	* As an action on the Elastic IP, "Associate address" with the "Network interface" that has the interface ID of eth0 noted earlier.
 6. Now you can ssh into your instance on its new public IP.
 7. Time to get some essentials:
-
 ```
 sudo -i yum install -y git gcc openssl-devel kernel-devel-$(uname -r) bc numactl-devel make net-tools vim pciutils iproute wget
 ```
-
 8. Download DPDK from [https://core.dpdk.org/download/](https://core.dpdk.org/download/).  I suggest 18.11.0 (LTS). For example:
-
-		wget https://fast.dpdk.org/rel/dpdk-18.11.tar.xz
-		tar xf dpdk*.tar.xz
-		cd dpdk*
-		
+```
+wget https://fast.dpdk.org/rel/dpdk-18.11.tar.xz
+tar xf dpdk*.tar.xz
+cd dpdk*
+```		
 9. Assuming you are on x86_64 linux with gcc (otherwise see DPDK documentation):
 
 		sudo su

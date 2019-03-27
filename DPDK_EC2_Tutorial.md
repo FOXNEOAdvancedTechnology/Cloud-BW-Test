@@ -119,6 +119,6 @@ hello from core 0
 ```
 
 ### Notes:
-EC2 networking will still route IP packets to the private IP addresses of the DPDK-enabled Network Interface as identified in the AWS Console.
+EC2 networking will still route IP packets to the private IP addresses of the DPDK-enabled Network Interfaces as identified in the AWS Console.
 
-You can add additional Network Interfaces onto your EC2 instance by going to the "Network Interfaces" tab on the AWS Console and clicking on "Create Network Interface", then "attaching" them to your instance.
+You can add additional Network Interfaces onto your EC2 instance beyond `eth1` by going to the "Network Interfaces" tab on the AWS Console and clicking on "Create Network Interface", then "attaching" them to your instance.

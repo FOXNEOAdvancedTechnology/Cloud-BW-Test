@@ -38,7 +38,7 @@ type `hugetlbfs` has already been mounted.  You can check this:
 # cat /proc/mounts | grep hugetlbfs
 hugetlbfs /dev/hugepages hugetlbfs rw,seclabel,relatime 0 0
 ```
-	If it is not there for some reason, you should mount one:
+If it is not there for some reason, you should mount one:
 ```
 mkdir /mnt/huge
 mount -t hugetlbfs nodev /mnt/huge

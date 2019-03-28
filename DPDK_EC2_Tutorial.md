@@ -2,7 +2,7 @@
 
 *DPDK is a very large and complex toolkit.  Here is a step-by-step mechanism to get it running on AWS EC2.*
 
-1. For this tutorial, launch an EC2 instance with RHEL AMI, such as Red Hat Enterprise Linux 7.6.  (Other AMIs can work with DPDK, we'll use RHEL for this tutorial).
+1. For this tutorial, launch an EC2 instance with RHEL AMI, such as Red Hat Enterprise Linux 7.6.  (Other AMIs can work with DPDK, but we'll use RHEL for this tutorial).
 2. Choose an instance type that supports the Elastic Network Adapter (ENA).  A list is here: <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html>.  For example, c5.9xlarge. If you launch with the right instance type and AMI you don't have to do anything special to enable the ENA.
 3. We will use eth0 for ssh control of the EC2 instance.  Add at least one additional Network Interface for DPDK.
 4. Configure an appropriate Security Group to let in the traffic you are interested in.

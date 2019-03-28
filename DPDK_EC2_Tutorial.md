@@ -9,7 +9,7 @@
 5. Because your EC2 instance has more than one Network Interface, you'll have to set up an Elastic IP to access the EC2 instance from outside AWS:  
 	* Go to the EC2 console "Description" tab and look at "Network interfaces" section.
 	* Click on "eth0", and make note of "Interface ID"
-	* Go to "Elastic IPs" and "Allocate new address" with defaul options.
+	* Go to "Elastic IPs" and "Allocate new address" with default options.
 	* As an action on the Elastic IP, "Associate address" with the "Network interface" that has the interface ID of eth0 noted earlier.
 6. Now you can ssh into your instance on its new public IP.
 7. Time to get some essentials:

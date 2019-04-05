@@ -1,9 +1,10 @@
 // Adapted from: https://github.com/DPDK/dpdk/blob/master/examples/skeleton/basicfwd.c
-// by Thomas Edwards, Fox Networks Engineering & Operations (Disney)
-
+// with additonal code from https://github.com/DPDK/dpdk/blob/master/app/test-pmd/txonly.c
 /* SPDX-License-Identifier: BSD-3-Clause
  * Copyright(c) 2010-2015 Intel Corporation
  */
+
+// by Thomas Edwards, Fox Networks Engineering & Operations (Disney)
 
 #include <stdio.h>
 #include <stdint.h>
@@ -18,6 +19,7 @@
 #include <rte_byteorder.h>
 #include <rte_common.h>
 #include <rte_ether.h>
+#include <time.h>
 
 #define RX_RING_SIZE 1024
 #define TX_RING_SIZE 1024
@@ -30,7 +32,7 @@
 #define UDP_DST_PORT 6666 
 
 #define IP_SRC_ADDR ((172U << 24) | (30 << 16) | (0 << 8) | 73)
-#define IP_DST_ADDR ((172U << 24) | (30 << 16) | (0 << 8) | 194)
+#define IP_DST_ADDR ((172U << 24) | (30 << 16) | (0 << 8) | 159)
 
 #define IP_DEFTTL  64   /* from RFC 1340. */
 #define IP_VERSION 0x40
@@ -38,6 +40,8 @@
 #define IP_VHL_DEF (IP_VERSION | IP_HDRLEN)
 
 #define TX_PACKET_LENGTH 862
+
+#define IPG 4325
 
 /*
  *  * Work-around of a compilation error with ICC on invocations of the
@@ -64,56 +68,13 @@ static const struct rte_eth_conf port_conf_default = {
 	},
 };
 
-
 static struct ipv4_hdr  pkt_ip_hdr;  /**< IP header of transmitted packets. */
 static struct udp_hdr pkt_udp_hdr; /**< UDP header of transmitted packets. */
 
 struct ether_addr my_addr;
 
-void print_time()
-{
-	time_t     now;
-	struct tm *ts;
-	char       buf[80];
-
-	/* Get the current time */
-	now = time(NULL);
-
-	/* Format and print the time, "ddd yyyy-mm-dd hh:mm:ss zzz" */
-	ts = localtime(&now);
-	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", ts);
-
-	printf("%s,",buf);
-}
-
-void DumpHex(const void* data, size_t size) {
-	char ascii[17];
-	size_t i, j;
-	ascii[16] = '\0';
-	for (i = 0; i < size; ++i) {
-		printf("%02X ", ((unsigned char*)data)[i]);
-		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
-			ascii[i % 16] = ((unsigned char*)data)[i];
-		} else {
-			ascii[i % 16] = '.';
-		}
-		if ((i+1) % 8 == 0 || i+1 == size) {
-			printf(" ");
-			if ((i+1) % 16 == 0) {
-				printf("|  %s \n", ascii);
-			} else if (i+1 == size) {
-				ascii[(i+1) % 16] = '\0';
-				if ((i+1) % 16 <= 8) {
-					printf(" ");
-				}
-				for (j = (i+1) % 16; j < 16; ++j) {
-					printf("   ");
-				}
-				printf("|  %s \n", ascii);
-			}
-		}
-	}
-}
+int sn=0; // RTP sequence number
+long dontmark=0; // keeps Mark to single packet
 
 static void
 copy_buf_to_pkt_segs(void* buf, unsigned len, struct rte_mbuf *pkt,
@@ -279,9 +240,21 @@ port_init(uint16_t port, struct rte_mempool *mbuf_pool)
 	return 0;
 }
 
+struct timespec diff(struct timespec start, struct timespec end)
+{
+	struct timespec temp;
+	if ((end.tv_nsec-start.tv_nsec)<0) {
+		temp.tv_sec = end.tv_sec-start.tv_sec-1;
+		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+	} else {
+		temp.tv_sec = end.tv_sec-start.tv_sec;
+		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+	}
+	return temp;
+}
+
 /*
- * The lcore main. This is the main thread that does the work, reading from
- * an input port and writing to an output port.
+ * The lcore main polled task
  */
 static __attribute__((noreturn)) void
 lcore_main(struct rte_mempool *mbp)
@@ -301,7 +274,8 @@ lcore_main(struct rte_mempool *mbp)
 
 	struct ether_hdr eth_hdr;
 
-	printf("in lcore_main\n");
+	struct timespec time1, time2, delta;
+
 	/*
 	 * Check that the port is on the same NUMA node as the polling thread
 	 * for best performance.
@@ -314,68 +288,68 @@ lcore_main(struct rte_mempool *mbp)
 					"polling thread.\n\tPerformance will "
 					"not be optimal.\n", port);
 
-	printf("\nCore %u receiving packets. [Ctrl+C to quit]\n",
-			rte_lcore_id());
-
-//#########################
-// It is all happening here!
-// Look at https://github.com/DPDK/dpdk/blob/master/app/test-pmd/txonly.c
-//
-// https://doc.dpdk.org/api-16.11/rte__ethdev_8h.html
-//
+//	printf("\nCore %u receiving packets. [Ctrl+C to quit]\n",
+//			rte_lcore_id());
 
 	pkt = rte_mbuf_raw_alloc(mbp);  
 	if(pkt == NULL) {printf("trouble at rte_mbuf_raw_alloc\n");}
-	printf("rte_pktmbuf_reset_headroom(pkt)...\n");
 	rte_pktmbuf_reset_headroom(pkt);
-	printf("pkt->data_len = 862;\n");
 	pkt->data_len = 862;
-	
-	dst_eth_addr.as_int=rte_cpu_to_be_64(0x0a704ae1dd340000ULL);
 
+	// set up dst MAC	
+	dst_eth_addr.as_int=rte_cpu_to_be_64(0x0ae20e2d895a0000ULL);
 	ether_addr_copy(&dst_eth_addr,&eth_hdr.d_addr);
 	ether_addr_copy(&my_addr, &eth_hdr.s_addr);
 	eth_hdr.ether_type = rte_cpu_to_be_16(ETHER_TYPE_IPv4);
 
 	copy_buf_to_pkt(&eth_hdr, sizeof(eth_hdr), pkt, 0);
 	copy_buf_to_pkt(&pkt_ip_hdr, sizeof(pkt_ip_hdr), pkt, sizeof(struct ether_hdr));
-
 	copy_buf_to_pkt(&pkt_udp_hdr, sizeof(pkt_udp_hdr), pkt,
 				sizeof(struct ether_hdr) +
 				sizeof(struct ipv4_hdr));
 
-	/*
- * 		 * Complete first mbuf of packet and append it to the
- * 		 		 * burst of packets to be transmitted.
- * 		 		 		 */
+// Add some pkt fields
+
 	pkt->nb_segs = 1;
 	pkt->pkt_len = pkt->data_len;
 	pkt->ol_flags = 0;
-	pkt->l2_len = sizeof(struct ether_hdr);
-	pkt->l3_len = sizeof(struct ipv4_hdr);
+// 	I think these are only needed for offload
+//	pkt->l2_len = sizeof(struct ether_hdr);
+//	pkt->l3_len = sizeof(struct ipv4_hdr);
 
-/*
-	data=rte_pktmbuf_mtod(pkt,char *);
-	data[0]=0x80;
-	data[1]=0x60;
-	data[2]=(69/256);
-	data[3]=(69%256);
-	
-*/
-	
-	printf("pkts_burst[0] = pkt;\n");
+	char rtp_hdr[4] = {0x80, 0x60, 0x0, 0x0 };
+	rtp_hdr[2]=(sn/256);
+	rtp_hdr[3]=(sn%256);
+	sn=(sn+1)%32768;
+
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
+	if(((time2.tv_sec % 60)==0) && (time2.tv_sec != dontmark))
+        {
+		// mark 
+		rtp_hdr[1]=0xE0;
+		dontmark=time2.tv_sec; // just do it once
+	}
+	else
+	{
+		// don't mark
+		rtp_hdr[1]=0x60;
+	}
+
+	copy_buf_to_pkt(&rtp_hdr, sizeof(rtp_hdr), pkt, 
+				sizeof(struct ether_hdr) +
+                                sizeof(struct ipv4_hdr) + 
+				sizeof(struct udp_hdr));
+
 	pkts_burst[0] = pkt;
-	printf("rte_eth_tx_burst\n");
 	const uint16_t nb_tx = rte_eth_tx_burst(0, 0, pkts_burst, 1);
-	printf("nb_tx=%d\n",nb_tx);
-	
-//dump eth header
-//DumpHex(rte_pktmbuf_mtod(pkts_burst[0],struct ether_hdr *),14);
-//dump whole packet
-//DumpHex(rte_pktmbuf_mtod(bufs[i],char *),bufs[i]->pkt_len);
+	if(nb_tx!=1) {printf("nb_tx=%d !!!!\n",nb_tx);}
 
-	//printf("rte_pktmbuf_free\n");
-	//rte_pktmbuf_free(pkts_burst[0]);
+
+	
+	// this was causing crashes, not sure I need to free the pktmbuf	
+	//rte_pktmbuf_free(pkt);
+
+
 }
 
 /*

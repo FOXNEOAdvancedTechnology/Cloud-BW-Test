@@ -31,8 +31,10 @@
 #define UDP_SRC_PORT 6666 
 #define UDP_DST_PORT 6666 
 
+// set up SRC/DST addresses
 #define IP_SRC_ADDR ((172U << 24) | (30 << 16) | (0 << 8) | 73)
-#define IP_DST_ADDR ((172U << 24) | (30 << 16) | (0 << 8) | 159)
+#define IP_DST_ADDR ((172U << 24) | (30 << 16) | (0 << 8) | 225)
+#define DEST_MAC 0x0a38caf6f3200000ULL
 
 #define IP_DEFTTL  64   /* from RFC 1340. */
 #define IP_VERSION 0x40
@@ -297,7 +299,7 @@ lcore_main(struct rte_mempool *mbp)
 	pkt->data_len = 862;
 
 	// set up dst MAC	
-	dst_eth_addr.as_int=rte_cpu_to_be_64(0x0ae20e2d895a0000ULL);
+	dst_eth_addr.as_int=rte_cpu_to_be_64(DEST_MAC);
 	ether_addr_copy(&dst_eth_addr,&eth_hdr.d_addr);
 	ether_addr_copy(&my_addr, &eth_hdr.s_addr);
 	eth_hdr.ether_type = rte_cpu_to_be_16(ETHER_TYPE_IPv4);

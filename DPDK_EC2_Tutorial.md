@@ -60,7 +60,12 @@ HugePages_Surp:        0
 13. Disable Address-Space Layout Randomization (ASLR)
 ```
 echo 0 > /proc/sys/kernel/randomize_va_space
-```		
+```	
+Alternatively, if you would like to make this permanent and not have to type it every reboot, you can append it to sysctl.conf:
+```
+echo "kernel.randomize_va_space=0" >> /etc/sysctl.conf
+```
+
 14.  Install kernel modules:
 ```
 modprobe uio

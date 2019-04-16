@@ -31,7 +31,13 @@ make config install T=x86_64-native-linuxapp-gcc DESTDIR=$RTE_SDK
 10. Reserve hugepages:
 ```
 echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
-```		
+```
+
+Alternatively, if you want to set reservation of hugepages permanently so you don't have to type this every time you reboot, you can append the reservation to sysctl.conf in RHEL:
+```
+echo "vm.nr_hugepages=1024" >> /etc/sysctl.conf
+```
+
 11. In the RHEL AMI, it is likely a file system of
 type `hugetlbfs` has already been mounted.  You can check this:
 ```

@@ -34,6 +34,7 @@
 
 uint64_t DST_MAC=0;
 uint32_t IP_SRC_ADDR=0,IP_DST_ADDR=0;
+int IPG=0;
 
 #define IP_DEFTTL  64   /* from RFC 1340. */
 #define IP_VERSION 0x40
@@ -41,8 +42,6 @@ uint32_t IP_SRC_ADDR=0,IP_DST_ADDR=0;
 #define IP_VHL_DEF (IP_VERSION | IP_HDRLEN)
 
 #define TX_PACKET_LENGTH 862
-
-#define IPG 4325
 
 /*
  *  * Work-around of a compilation error with ICC on invocations of the
@@ -193,9 +192,9 @@ setup_pkt_udp_ip_headers(struct ipv4_hdr *ip_hdr,
 	ip_cksum += ptr16[6]; ip_cksum += ptr16[7];
 	ip_cksum += ptr16[8]; ip_cksum += ptr16[9];
 
-	/*
- * 	 * Reduce 32 bit checksum to 16 bits and complement it.
- * 	 	 */
+
+ //Reduce 32 bit checksum to 16 bits and complement it.
+	
 	ip_cksum = ((ip_cksum & 0xFFFF0000) >> 16) +
 		(ip_cksum & 0x0000FFFF);
 	if (ip_cksum > 65535)
@@ -203,6 +202,7 @@ setup_pkt_udp_ip_headers(struct ipv4_hdr *ip_hdr,
 	ip_cksum = (~ip_cksum) & 0x0000FFFF;
 	if (ip_cksum == 0)
 		ip_cksum = 0xFFFF;
+
 	ip_hdr->hdr_checksum = (uint16_t) ip_cksum;
 }
 
@@ -309,7 +309,7 @@ lcore_main(struct rte_mempool *mbp)
 	pkt = rte_mbuf_raw_alloc(mbp);  
 	if(pkt == NULL) {printf("trouble at rte_mbuf_raw_alloc\n");}
 	rte_pktmbuf_reset_headroom(pkt);
-	pkt->data_len = 862;
+	pkt->data_len = TX_PACKET_LENGTH;
 
 	// set up dst MAC	
 	dst_eth_addr.as_int=rte_cpu_to_be_64(DST_MAC);
@@ -328,9 +328,6 @@ lcore_main(struct rte_mempool *mbp)
 	pkt->nb_segs = 1;
 	pkt->pkt_len = pkt->data_len;
 	pkt->ol_flags = 0;
-// 	I think these are only needed for offload
-//	pkt->l2_len = sizeof(struct ether_hdr);
-//	pkt->l3_len = sizeof(struct ipv4_hdr);
 
 	char rtp_hdr[4] = {0x80, 0x60, 0x0, 0x0 };
 	rtp_hdr[2]=(sn/256);
@@ -365,7 +362,7 @@ void process_args(int argc, char **argv)
 {
 	int c,mac_flag=0,ip_src_flag=0,ip_dst_flag=0;
 
-	while ((c = getopt(argc, argv, "m:s:d:h")) != -1)
+	while ((c = getopt(argc, argv, "m:s:d:h:g")) != -1)
                 switch(c) {
                 case 'm':
                         // note, not quite sure why last two bytes are zero, but that is how DPDK likes it
@@ -381,6 +378,9 @@ void process_args(int argc, char **argv)
                         IP_DST_ADDR=string_to_ip(optarg);
                         ip_dst_flag=1;
                         break;
+		case 'g':
+			IPG=strtol(optarg,NULL,10);
+			break;
                 case 'h':
                         printf("usage -- -m [dst MAC] -s [src IP] -d [dst IP]\n");
                         exit(0);

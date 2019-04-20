@@ -34,7 +34,7 @@
 
 uint64_t DST_MAC=0;
 uint32_t IP_SRC_ADDR=0,IP_DST_ADDR=0;
-int IPG=0;
+int IPG=1000;
 
 #define IP_DEFTTL  64   /* from RFC 1340. */
 #define IP_VERSION 0x40
@@ -290,22 +290,34 @@ struct timespec diff(struct timespec start, struct timespec end)
 	return temp;
 }
 
+void IPG_wait()
+{
+	struct timespec time1,time2,delta;
+	if(IPG>0){
+        	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time1);
+	        do {
+			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
+			delta=diff(time1,time2);
+	        }
+		while (delta.tv_nsec<IPG);
+	}
+}
+
 /*
  * The lcore main polled task
  */
-static __attribute__((noreturn)) void
-lcore_main(struct rte_mempool *mbp)
+static __attribute__((noreturn)) void lcore_main(struct rte_mempool *mbp)
 {
 	struct rte_mbuf *pkt;
 	struct rte_mbuf *pkts_burst[1];
-
+	
         union {
                 uint64_t as_int;
                 struct ether_addr as_addr;
         } dst_eth_addr;
 
 	struct ether_hdr eth_hdr;
-	struct timespec time2;
+	struct timespec time1,time2;
 	pkt = rte_mbuf_raw_alloc(mbp);  
 	if(pkt == NULL) {printf("trouble at rte_mbuf_raw_alloc\n");}
 	rte_pktmbuf_reset_headroom(pkt);
@@ -355,14 +367,14 @@ lcore_main(struct rte_mempool *mbp)
 	pkts_burst[0] = pkt;
 	const uint16_t nb_tx = rte_eth_tx_burst(0, 0, pkts_burst, 1);
 	if(nb_tx!=1) {printf("nb_tx=%d !!!!\n",nb_tx);}
-
+	IPG_wait();
 }
 
 void process_args(int argc, char **argv)
 {
 	int c,mac_flag=0,ip_src_flag=0,ip_dst_flag=0;
 
-	while ((c = getopt(argc, argv, "m:s:d:h:g")) != -1)
+	while ((c = getopt(argc, argv, "m:s:d:h:g:")) != -1)
                 switch(c) {
                 case 'm':
                         // note, not quite sure why last two bytes are zero, but that is how DPDK likes it
@@ -379,7 +391,7 @@ void process_args(int argc, char **argv)
                         ip_dst_flag=1;
                         break;
 		case 'g':
-			IPG=strtol(optarg,NULL,10);
+			IPG=strtol(optarg,(char **)NULL,10);
 			break;
                 case 'h':
                         printf("usage -- -m [dst MAC] -s [src IP] -d [dst IP]\n");

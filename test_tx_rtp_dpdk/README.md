@@ -1,16 +1,18 @@
-# Minimal Packet Sender
+# Send RTP stream with DPDK
 
-Sends a single UDP packet from DPDK port 0 to designated destination.
+Sends an RTP stream with specified inter-packet gap, whose length is measured by x86 Time Stamp Counter (TSC) cycles.
+
+(clock_gettime takes too long to read)
 
 Usage:
 ```
-minimal_tx -- -m [dst MAC] -s [src IP] -d [dst IP]
+test_tx_rtp_dpdk -- -m [dst MAC] -s [src IP] -d [dst IP] -g [inter packet gap in TSC cycles] 
 ```
 For example:
 ```
-./build/minimal_tx -- -m 0f:70:4a:e1:dd:34 -s 172.30.50.73 -d 172.30.50.194
+./build/test_tx_rtp_dpdk -- -m 0f:70:4a:e1:dd:34 -s 192.30.0.73 -d 192.30.0.194 -g 1400
 ```
 As per usual, put DPDK EAL options ahead of `--` if needed.  For example:
 ```
-./build/minimal_tx -v -- -m 0f:70:4a:e1:dd:34 -s 172.30.50.73 -d 172.30.50.194
+./build/test_tx_rtp_dpdk -v -- -m 0f:70:4a:e1:dd:34 -s 192.30.0.73 -d 192.30.0.194 -g 1400
 ```

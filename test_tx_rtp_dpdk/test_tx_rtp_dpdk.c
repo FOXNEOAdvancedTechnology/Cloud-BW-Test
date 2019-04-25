@@ -34,7 +34,7 @@
 
 uint64_t DST_MAC=0;
 uint32_t IP_SRC_ADDR=0,IP_DST_ADDR=0;
-int IPG=1000;
+int IPG=0;
 
 #define IP_DEFTTL  64   /* from RFC 1340. */
 #define IP_VERSION 0x40
@@ -290,16 +290,33 @@ struct timespec diff(struct timespec start, struct timespec end)
 	return temp;
 }
 
+static __inline__ unsigned long long rdtsc(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+  return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
+
 void IPG_wait()
 {
-	struct timespec time1,time2,delta;
+	unsigned long long time1,time2;
+	
+//	struct timespec time1,time2,delta;
 	if(IPG>0){
-        	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time1);
-	        do {
-			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
-			delta=diff(time1,time2);
-	        }
-		while (delta.tv_nsec<IPG);
+ 
+/* this was way too slow... */       	
+//		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time1);
+//	        do {
+//			clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
+//			delta=diff(time1,time2);
+//	        }
+//		while (delta.tv_nsec<IPG);
+
+		time1=rdtsc();
+		do {
+			time2=rdtsc();
+		}
+		while (time2-time1<IPG);	
 	}
 }
 

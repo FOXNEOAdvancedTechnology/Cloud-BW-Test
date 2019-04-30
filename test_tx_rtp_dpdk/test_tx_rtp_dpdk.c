@@ -23,7 +23,7 @@
 #include <time.h>
 
 #define RX_RING_SIZE 1024
-#define TX_RING_SIZE 1024
+#define TX_RING_SIZE 8192 
 
 #define NUM_MBUFS 8191
 #define MBUF_CACHE_SIZE 250
@@ -42,7 +42,6 @@ int IPG=0;
 #define IP_VHL_DEF (IP_VERSION | IP_HDRLEN)
 
 #define TX_PACKET_LENGTH 862
-
 /*
  *  * Work-around of a compilation error with ICC on invocations of the
  *   * rte_be_to_cpu_16() function.
@@ -74,7 +73,7 @@ static struct udp_hdr pkt_udp_hdr; /**< UDP header of transmitted packets. */
 struct ether_addr my_addr;
 
 int sn=0; // RTP sequence number
-long dontmark=0; // keeps Mark to single packet
+time_t dontmark=0; // keeps Mark to single packet
 
 // convert six colon separated hex bytes string to uint64_t Ethernet MAC address
 uint64_t string_to_mac(char *s) {
@@ -240,12 +239,14 @@ port_init(uint16_t port, struct rte_mempool *mbuf_pool)
 		return retval;
 
 	/* Allocate and set up 1 RX queue per Ethernet port. */
-	for (q = 0; q < rx_rings; q++) {
+/*
+ * for (q = 0; q < rx_rings; q++) {
 		retval = rte_eth_rx_queue_setup(port, q, nb_rxd,
 				rte_eth_dev_socket_id(port), NULL, mbuf_pool);
 		if (retval < 0)
 			return retval;
 	}
+*/
 
 	txconf = dev_info.default_txconf;
 	txconf.offloads = port_conf.txmode.offloads;
@@ -334,7 +335,7 @@ static __attribute__((noreturn)) void lcore_main(struct rte_mempool *mbp)
         } dst_eth_addr;
 
 	struct ether_hdr eth_hdr;
-	struct timespec time1,time2;
+	time_t TheTime=0;
 	pkt = rte_mbuf_raw_alloc(mbp);  
 	if(pkt == NULL) {printf("trouble at rte_mbuf_raw_alloc\n");}
 	rte_pktmbuf_reset_headroom(pkt);
@@ -363,27 +364,29 @@ static __attribute__((noreturn)) void lcore_main(struct rte_mempool *mbp)
 	rtp_hdr[3]=(sn%256);
 	sn=(sn+1)%32768;
 
-	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time2);
-	if(((time2.tv_sec % 60)==0) && (time2.tv_sec != dontmark))
-        {
-		// mark 
-		rtp_hdr[1]=0xE0;
-		dontmark=time2.tv_sec; // just do it once
-	}
-	else
-	{
-		// don't mark
-		rtp_hdr[1]=0x60;
-	}
+	rtp_hdr[1]=0x60;
+	if(sn==0){	
+		if(((TheTime % 60)==0) && (TheTime != dontmark))
+		
+		{// mark 
+			rtp_hdr[1]=0xE0;
+			dontmark=TheTime; // just do it once
+		}
+		else
+		{
+			// don't mark
+			rtp_hdr[1]=0x60;
+		}
 
+	}
 	copy_buf_to_pkt(&rtp_hdr, sizeof(rtp_hdr), pkt, 
 				sizeof(struct ether_hdr) +
                                 sizeof(struct ipv4_hdr) + 
 				sizeof(struct udp_hdr));
 
 	pkts_burst[0] = pkt;
-	const uint16_t nb_tx = rte_eth_tx_burst(0, 0, pkts_burst, 1);
-	if(nb_tx!=1) {printf("nb_tx=%d !!!!\n",nb_tx);}
+	// make sure packet sends	
+	while(rte_eth_tx_burst(0,0,pkts_burst,1) != 1){};	
 	IPG_wait();
 }
 

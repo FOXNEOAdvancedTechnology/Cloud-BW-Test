@@ -366,18 +366,13 @@ static __attribute__((noreturn)) void lcore_main(struct rte_mempool *mbp)
 
 	rtp_hdr[1]=0x60;
 	if(sn==0){	
+		TheTime=time(NULL);
 		if(((TheTime % 60)==0) && (TheTime != dontmark))
-		
-		{// mark 
+		{	
+			// mark 
 			rtp_hdr[1]=0xE0;
 			dontmark=TheTime; // just do it once
 		}
-		else
-		{
-			// don't mark
-			rtp_hdr[1]=0x60;
-		}
-
 	}
 	copy_buf_to_pkt(&rtp_hdr, sizeof(rtp_hdr), pkt, 
 				sizeof(struct ether_hdr) +

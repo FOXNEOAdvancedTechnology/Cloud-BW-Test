@@ -1,6 +1,6 @@
-# Minimal DPDK Packet Receiving
+# Test reciever for RTP data using DPDK 
 
-This program will receive packets endlessly on all DPDK enable interfaces.  Usage:
+This program recieves RTP data using DPDK.  Right now it does not filter on UDP DST port, but does reject all packets under 200 bytes (LLDP, etc.).  Output is JSON.
 ```
-./build/minimal_tx 
+./build/test_rx_rtp_dpdk
 ```
